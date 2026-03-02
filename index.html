@@ -270,8 +270,10 @@
             {
                 name: 'Mercury', radius: 0.38, distance: 0.39, period_rev: 88, period_rot: 58.6,
                 eccentricity: 0.2056, inclination: 7.00, axialTilt: 0.03,
-                texture: 'https://upload.wikimedia.org/wikipedia/commons/9/92/Solarsystemscope_texture_2k_mercury.jpg',
-                bumpMap: 'https://upload.wikimedia.org/wikipedia/commons/9/92/Solarsystemscope_texture_2k_mercury.jpg',
+                texture: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Solarsystemscope_texture_8k_mercury.jpg/4096px-Solarsystemscope_texture_8k_mercury.jpg',
+                textureFallback: 'https://upload.wikimedia.org/wikipedia/commons/9/92/Solarsystemscope_texture_2k_mercury.jpg',
+                bumpMap: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Solarsystemscope_texture_8k_mercury.jpg/4096px-Solarsystemscope_texture_8k_mercury.jpg',
+                bumpMapFallback: 'https://upload.wikimedia.org/wikipedia/commons/9/92/Solarsystemscope_texture_2k_mercury.jpg',
                 fallbackColor: 0xA9A9A9
             },
             {
@@ -295,20 +297,24 @@
             {
                 name: 'Mars', radius: 0.53, distance: 1.52, period_rev: 687, period_rot: 1.03,
                 eccentricity: 0.0934, inclination: 1.85, axialTilt: 25.19,
-                texture: 'https://upload.wikimedia.org/wikipedia/commons/4/46/Solarsystemscope_texture_2k_mars.jpg',
-                bumpMap: 'https://upload.wikimedia.org/wikipedia/commons/4/46/Solarsystemscope_texture_2k_mars.jpg',
+                texture: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Solarsystemscope_texture_8k_mars.jpg',
+                textureFallback: 'https://upload.wikimedia.org/wikipedia/commons/4/46/Solarsystemscope_texture_2k_mars.jpg',
+                bumpMap: 'https://upload.wikimedia.org/wikipedia/commons/7/70/Solarsystemscope_texture_8k_mars.jpg',
+                bumpMapFallback: 'https://upload.wikimedia.org/wikipedia/commons/4/46/Solarsystemscope_texture_2k_mars.jpg',
                 fallbackColor: 0xBC2732
             },
             {
                 name: 'Jupiter', radius: 11.2, distance: 5.2, period_rev: 4332, period_rot: 0.41,
                 eccentricity: 0.0489, inclination: 1.31, axialTilt: 3.13,
-                texture: 'https://upload.wikimedia.org/wikipedia/commons/b/be/Solarsystemscope_texture_2k_jupiter.jpg',
+                texture: 'https://upload.wikimedia.org/wikipedia/commons/5/5e/Solarsystemscope_texture_8k_jupiter.jpg',
+                textureFallback: 'https://upload.wikimedia.org/wikipedia/commons/b/be/Solarsystemscope_texture_2k_jupiter.jpg',
                 fallbackColor: 0xC99039
             },
             {
                 name: 'Saturn', radius: 9.45, distance: 9.54, period_rev: 10760, period_rot: 0.45,
                 eccentricity: 0.0565, inclination: 2.49, axialTilt: 26.73,
-                texture: 'https://upload.wikimedia.org/wikipedia/commons/e/ea/Solarsystemscope_texture_2k_saturn.jpg',
+                texture: 'https://upload.wikimedia.org/wikipedia/commons/1/1e/Solarsystemscope_texture_8k_saturn.jpg',
+                textureFallback: 'https://upload.wikimedia.org/wikipedia/commons/e/ea/Solarsystemscope_texture_2k_saturn.jpg',
                 ringTexture: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/planets/saturn_ring.png',
                 fallbackColor: 0xEAD6B8,
                 hasRing: true
@@ -395,10 +401,16 @@
         const sunGeometry = new THREE.SphereGeometry(5, sunSegments, sunSegments);
         const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
-        textureLoader.load('https://upload.wikimedia.org/wikipedia/commons/c/cb/Solarsystemscope_texture_2k_sun.jpg',
-            (texture) => { sunMaterial.map = texture; sunMaterial.needsUpdate = true; },
+        textureLoader.load('https://upload.wikimedia.org/wikipedia/commons/a/a4/Solarsystemscope_texture_8k_sun.jpg',
+            (texture) => { texture.colorSpace = THREE.SRGBColorSpace; sunMaterial.map = texture; sunMaterial.needsUpdate = true; },
             undefined,
-            () => { sunMaterial.color.setHex(0xfdb813); }
+            () => {
+                textureLoader.load('https://upload.wikimedia.org/wikipedia/commons/c/cb/Solarsystemscope_texture_2k_sun.jpg',
+                    (texture) => { sunMaterial.map = texture; sunMaterial.needsUpdate = true; },
+                    undefined,
+                    () => { sunMaterial.color.setHex(0xfdb813); }
+                );
+            }
         );
 
         const sun = new THREE.Mesh(sunGeometry, sunMaterial);
@@ -488,6 +500,66 @@
             })));
         }
 
+        // --- 程序化土星环纹理 ---
+        function createSaturnRingTexture() {
+            // 宽度方向 = 径向（内→外），高度方向 = 环向（均匀）
+            const w = 2048, h = 4;
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+
+            // 定义环带结构（u: 0=内缘, 1=外缘）
+            // 参考 Cassini 数据：D环(极暗) → C环(暗) → B环(亮密) → 卡西尼缝(暗) → A环(中亮) → 恩克缝 → F环(细亮)
+            const bands = [
+                // [start, end, r, g, b, alpha]
+                [0.00, 0.03, 80, 70, 60, 0.05],
+                [0.03, 0.06, 90, 80, 65, 0.1],
+                [0.06, 0.22, 140, 120, 95, 0.3],
+                [0.22, 0.24, 160, 140, 110, 0.4],
+                [0.24, 0.52, 210, 190, 160, 0.85],
+                [0.52, 0.55, 50, 40, 35, 0.03],
+                [0.55, 0.80, 180, 165, 140, 0.6],
+                [0.80, 0.81, 60, 55, 45, 0.08],
+                [0.81, 0.88, 170, 155, 130, 0.5],
+                [0.88, 0.90, 40, 35, 30, 0.02],
+                [0.90, 0.93, 200, 180, 150, 0.4],
+                [0.93, 1.00, 60, 50, 40, 0.02],
+            ];
+
+            // 用 ImageData 逐像素写入 RGBA
+            const imgData = ctx.createImageData(w, h);
+            for (let x = 0; x < w; x++) {
+                const u = x / w;
+                let r = 0, g = 0, b = 0, a = 0;
+                for (const band of bands) {
+                    if (u >= band[0] && u < band[1]) {
+                        r = band[2]; g = band[3]; b = band[4]; a = band[5];
+                        // 细微噪声
+                        const noise = 0.88 + Math.random() * 0.24;
+                        r = Math.min(255, Math.floor(r * noise));
+                        g = Math.min(255, Math.floor(g * noise));
+                        b = Math.min(255, Math.floor(b * noise));
+                        a = Math.min(1, a * (0.9 + Math.random() * 0.2));
+                        break;
+                    }
+                }
+                const a255 = Math.floor(a * 255);
+                // 填充整列（所有行）
+                for (let y = 0; y < h; y++) {
+                    const idx = (y * w + x) * 4;
+                    imgData.data[idx] = r;
+                    imgData.data[idx + 1] = g;
+                    imgData.data[idx + 2] = b;
+                    imgData.data[idx + 3] = a255;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
         // --- 行星生成 ---
         const planetMeshes = [];
         const interactableMeshes = [];
@@ -526,7 +598,8 @@
             planetGroup.add(tiltContainer);
 
             // 行星本体
-            const segments = isMobile ? (data.name === 'Earth' ? 48 : 24) : 64;
+            const hdPlanets = ['Earth', 'Mercury', 'Mars', 'Jupiter', 'Saturn'];
+            const segments = isMobile ? (hdPlanets.includes(data.name) ? 48 : 24) : 64;
             const pRadius = data.radius * SIZE_SCALE;
             const geo = new THREE.SphereGeometry(pRadius, segments, segments);
             let mat;
@@ -594,7 +667,14 @@
                 });
 
                 textureLoader.load(data.texture, (tex) => {
+                    tex.colorSpace = THREE.SRGBColorSpace;
                     mat.map = tex; mat.color.setHex(0xffffff); mat.needsUpdate = true;
+                }, undefined, () => {
+                    if (data.textureFallback) {
+                        textureLoader.load(data.textureFallback, (tex) => {
+                            mat.map = tex; mat.color.setHex(0xffffff); mat.needsUpdate = true;
+                        });
+                    }
                 });
 
                 if (data.bumpMap) {
@@ -602,6 +682,14 @@
                         mat.bumpMap = bumpTex;
                         mat.bumpScale = 0.05 * pRadius;
                         mat.needsUpdate = true;
+                    }, undefined, () => {
+                        if (data.bumpMapFallback) {
+                            textureLoader.load(data.bumpMapFallback, (bumpTex) => {
+                                mat.bumpMap = bumpTex;
+                                mat.bumpScale = 0.05 * pRadius;
+                                mat.needsUpdate = true;
+                            });
+                        }
                     });
                 }
 
@@ -670,20 +758,36 @@
             if ((data.hasRing || data.name === 'Uranus') && data.ringTexture) {
                 const ringInner = data.name === 'Saturn' ? 1.4 : 1.5;
                 const ringOuter = data.name === 'Saturn' ? 2.5 : 2.2;
-                const ringGeo = new THREE.RingGeometry(pRadius * ringInner, pRadius * ringOuter, 64);
+                // phiSegments=8 增加径向分段，避免单层拼缝
+                const ringGeo = new THREE.RingGeometry(pRadius * ringInner, pRadius * ringOuter, 128, 8);
                 const pos = ringGeo.attributes.position;
                 const v3 = new THREE.Vector3();
                 for (let i = 0; i < pos.count; i++) {
                     v3.fromBufferAttribute(pos, i);
                     ringGeo.attributes.uv.setXY(i, (v3.length() - pRadius*ringInner) / (pRadius*(ringOuter-ringInner)), 0.5);
                 }
-                const ringMat = new THREE.MeshStandardMaterial({
-                    color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.8
-                });
-                textureLoader.load(data.ringTexture, (tex) => {
-                    tex.rotation = Math.PI / 2; tex.center.set(0.5, 0.5);
-                    ringMat.map = tex; ringMat.needsUpdate = true;
-                });
+
+                let ringMat;
+                if (data.name === 'Saturn') {
+                    // 程序化生成高精度土星环纹理（带 A/B/C 环 + 卡西尼缝 + alpha）
+                    const ringTex = createSaturnRingTexture();
+                    ringTex.wrapS = THREE.ClampToEdgeWrapping;
+                    ringTex.wrapT = THREE.ClampToEdgeWrapping;
+                    ringMat = new THREE.MeshBasicMaterial({
+                        map: ringTex,
+                        side: THREE.DoubleSide,
+                        transparent: true,
+                        depthWrite: false
+                    });
+                } else {
+                    ringMat = new THREE.MeshStandardMaterial({
+                        color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.8
+                    });
+                    textureLoader.load(data.ringTexture, (tex) => {
+                        tex.rotation = Math.PI / 2; tex.center.set(0.5, 0.5);
+                        ringMat.map = tex; ringMat.needsUpdate = true;
+                    });
+                }
                 const ring = new THREE.Mesh(ringGeo, ringMat);
                 ring.rotation.x = Math.PI / 2;
                 tiltContainer.add(ring);
@@ -713,11 +817,34 @@
                 const moonGroup = new THREE.Group();
                 moonOrbitContainer.add(moonGroup);
 
-                const mGeo = new THREE.SphereGeometry(moonR, 24, 24);
-                const mMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.9 });
-                textureLoader.load('https://upload.wikimedia.org/wikipedia/commons/2/26/Solarsystemscope_texture_2k_moon.jpg', (tex) => {
-                    mMat.map = tex; mMat.needsUpdate = true;
-                });
+                const mGeo = new THREE.SphereGeometry(moonR, 48, 48);
+                const mMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.9, metalness: 0.05 });
+                // 高清月球贴图（Wikimedia 4k 缩放）
+                textureLoader.load(
+                    'https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Solarsystemscope_texture_2k_moon.jpg/4096px-Solarsystemscope_texture_2k_moon.jpg',
+                    (tex) => {
+                        tex.colorSpace = THREE.SRGBColorSpace;
+                        mMat.map = tex;
+                        mMat.color.setHex(0xffffff);
+                        mMat.needsUpdate = true;
+                    },
+                    undefined,
+                    () => {
+                        // 回退到 2k
+                        textureLoader.load('https://upload.wikimedia.org/wikipedia/commons/2/26/Solarsystemscope_texture_2k_moon.jpg', (tex) => {
+                            mMat.map = tex; mMat.needsUpdate = true;
+                        });
+                    }
+                );
+                // 月球凹凸贴图（用色彩图作 bump，突出陨石坑）
+                textureLoader.load(
+                    'https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Solarsystemscope_texture_2k_moon.jpg/4096px-Solarsystemscope_texture_2k_moon.jpg',
+                    (bumpTex) => {
+                        mMat.bumpMap = bumpTex;
+                        mMat.bumpScale = 0.04 * moonR;
+                        mMat.needsUpdate = true;
+                    }
+                );
                 const moon = new THREE.Mesh(mGeo, mMat);
                 moon.name = 'Moon';
                 moonGroup.add(moon);
@@ -1793,6 +1920,7 @@
                         u.mesh.getWorldPosition(wp);
 
                         u.mesh.visible = false;
+                        if (u.tiltContainer) u.tiltContainer.visible = false;
                         if (u.moonGroup) {
                             u.moonGroup.userData.mesh.visible = false;
                         }
@@ -2049,6 +2177,7 @@
                         rp.planetRevealed = true;
                         const group = planetMeshes[rp.index];
                         const u = group.userData;
+                        if (u.tiltContainer) u.tiltContainer.visible = true;
                         u.mesh.visible = true;
                         u.mesh.scale.set(0.01, 0.01, 0.01);
                         if (u.moonGroup) {
@@ -2100,6 +2229,7 @@
             if (t >= 11.0) {
                 planetMeshes.forEach(group => {
                     const u = group.userData;
+                    if (u.tiltContainer) u.tiltContainer.visible = true;
                     u.mesh.scale.set(1, 1, 1);
                     u.mesh.visible = true;
                     if (u.moonGroup) {
