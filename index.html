@@ -1897,7 +1897,7 @@
                 target: target.clone(),
                 centerMass, // 引力强度
                 elapsed: 0,
-                lifetime: 3.0,
+                lifetime: 6.0,
                 collapsed: false // 是否已收缩完成
             };
             gravitySystems.push(gs);
@@ -1936,8 +1936,8 @@
                         velArr[j3 + 2] += (dz / dist) * accel * dt;
                     }
 
-                    // 阻尼让粒子逐渐减速收缩（随时间增强）
-                    const damping = 1 - (0.3 + t * 1.5) * dt;
+                    // 阻尼让粒子逐渐减速收缩（随时间增强，减缓让螺旋更充分）
+                    const damping = 1 - (0.15 + t * 1.0) * dt;
                     velArr[j3] *= damping;
                     velArr[j3 + 1] *= damping;
                     velArr[j3 + 2] *= damping;
@@ -1975,13 +1975,13 @@
             rebirthTimer = 0;
             rebirthPlanetTimers.length = 0;
 
-            // 行星重生计时器
+            // 行星重生计时器（2x 慢速）
             planetsByDistance.forEach((pd, idx) => {
                 rebirthPlanetTimers.push({
                     index: pd.index,
-                    triggerTime: 2.0 + idx * 0.35,
+                    triggerTime: 4.0 + idx * 0.7,
                     spawned: false,
-                    gsRef: null, // 引力系统引用
+                    gsRef: null,
                     planetRevealed: false
                 });
             });
@@ -1990,9 +1990,9 @@
             const sunPos = new THREE.Vector3();
             sun.getWorldPosition(sunPos);
             createGravitySystem(
-                sunPos, 500, 200,
+                sunPos, 500, 300,
                 [0xFFCC00, 0xFF8800, 0xFFFFFF, 0xFF4400],
-                800 // 太阳引力更强
+                400 // 降低引力让收缩更慢
             );
         }
 
@@ -2003,28 +2003,28 @@
             // 更新所有引力系统
             updateGravitySystems(dt);
 
-            // 1.5s: 太阳开始显现（引力系统收缩到一定程度时）
-            if (t >= 1.5 && !sun.visible) {
+            // 3.0s: 太阳开始显现
+            if (t >= 3.0 && !sun.visible) {
                 sun.visible = true;
                 sunGlow.visible = true;
                 sun.scale.set(0.01, 0.01, 0.01);
                 glowMat.opacity = 0;
             }
 
-            // 1.5-2.5s: 太阳从尘埃核心膨胀点燃
-            if (t >= 1.5 && t < 2.5) {
-                const p = (t - 1.5) / 1.0;
+            // 3.0-5.0s: 太阳从尘埃核心膨胀点燃
+            if (t >= 3.0 && t < 5.0) {
+                const p = (t - 3.0) / 2.0;
                 const eased = 1 - Math.pow(1 - p, 3);
                 const s = 0.01 + 0.99 * eased;
                 sun.scale.set(s, s, s);
                 glowMat.opacity = eased;
             }
-            if (t >= 2.5) {
+            if (t >= 5.0) {
                 sun.scale.set(1, 1, 1);
                 glowMat.opacity = 1;
             }
 
-            // 2.0+: 行星依次引力聚合
+            // 4.0+: 行星依次引力聚合
             rebirthPlanetTimers.forEach(rp => {
                 if (!rp.spawned && t >= rp.triggerTime) {
                     rp.spawned = true;
@@ -2034,11 +2034,11 @@
                     const wp = new THREE.Vector3();
                     u.mesh.getWorldPosition(wp);
 
-                    // 创建引力聚合粒子
+                    // 创建引力聚合粒子（降低引力让螺旋更慢）
                     rp.gsRef = createGravitySystem(
-                        wp, 200, 60,
+                        wp, 200, 80,
                         [0xFFCC00, 0xAADDFF, 0xFFFFFF, 0xFF8800],
-                        300
+                        150
                     );
                 }
 
@@ -2083,21 +2083,21 @@
                 }
             });
 
-            // 4.0-4.5s: 星空淡入
-            if (t >= 4.0 && t < 4.5) {
-                const fadeIn = (t - 4.0) / 0.5;
+            // 8.0-9.0s: 星空从微暗恢复到正常
+            if (t >= 8.0 && t < 9.0) {
+                const fadeIn = (t - 8.0) / 1.0;
                 const skyBrightness = THREE.MathUtils.clamp((spherical.radius - 50) / 300, 0.15, 1.0);
-                skyMat.color.setScalar(fadeIn * skyBrightness);
+                skyMat.color.setScalar(skyBrightness * (0.7 + 0.3 * fadeIn));
             }
 
-            // 4.5s: 恢复轨道线和标签
-            if (t >= 4.5) {
+            // 9.0s: 恢复轨道线和标签
+            if (t >= 9.0) {
                 orbitLines.forEach(l => l.visible = uiVisible);
                 allLabels.forEach(l => l.visible = uiVisible);
             }
 
-            // 5.5s: 完全恢复
-            if (t >= 5.5) {
+            // 11.0s: 完全恢复
+            if (t >= 11.0) {
                 planetMeshes.forEach(group => {
                     const u = group.userData;
                     u.mesh.scale.set(1, 1, 1);
